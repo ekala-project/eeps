@@ -8,7 +8,7 @@ existing NixOS RFC process.
 ## EEP Types
 
 
-There are three kinds of EEP:
+There are three kinds of EEPs:
 
 - Standards Track EEP - Describes a new feature or implementation for the Ekala ecosystem. Generally this is a change to one or more technology in Ekala project.
 - Informational EEP - Describes an existing issue, or provides general guidelines or information to the Ekala project, but does not propose a new feature. Informational EEPs do not necessarily represent an Ekala project consensus or recommendation, so users and implementers are free to ignore Informational EEPs or follow their advice. The desire to identify issues in a formal and complete manner.
