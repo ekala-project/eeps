@@ -1,0 +1,61 @@
+---
+EEP: <eep number>
+Title: <eep title>
+Author: <list of authors' real names and optionally, email addrs>
+Sponsor: <real name of sponsor, optional>
+EEP-Delegate: <EEP delegate's real name, optional>
+Discussions-To: <URL of current canonical discussion thread>
+Status: <Draft | Active | Accepted | Provisional | Deferred | Rejected |
+         Withdrawn | Final | Superseded>
+Type: <Standards Track | Informational | Process>
+Topic: <Governance | Packaging | Release | Typing> optional
+Requires: <eep numbers, optional>
+Created: <date created on, in YYYY-MM-DD format>
+Post-History: <dates, in dd-mmm-yyyy format,
+               inline-linked to EEP discussion threads>
+Replaces: <eep number, optional>
+Superseded-By: <eep number, optional>
+Resolution: <url, optional>
+---
+
+<!-- no particular section is absolutely required, but in general, there should
+be a why, what, and how of what is being proposed -->
+
+# Motivation
+
+A paragraph or two of what is motivating for there to be change
+
+# Detailed implementation / Specification (optional)
+
+Any combination of references to pull requests, inlined code, or description
+of changes which can outline the means in which the change will happened.
+
+# Example usage (optional)
+
+Sometimes it's best to show the impact of the changes, this can demonstrate
+the value-proposition of the proposal.
+
+# Prior art (optional)
+
+Examples of similar discussions or implementations
+
+# Unresolved questions (optional)
+
+Unanswered questions with proposal, this could be things like naming, implementations,
+scope, domain, second-order effects, etc.
+
+# Future work (optional)
+
+Items which should be done in the future. This could be: deprecation stories,
+work in downstream repos, documentation, etc.
+
+# Changes (optional)
+
+If a specification or api, what changed over time and why
+
+# Acknowledgements (optional)
+
+Gratitude towards other contributors who were helpful
+
+
+
