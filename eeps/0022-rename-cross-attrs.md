@@ -66,7 +66,7 @@ The most common use case for this would be `pkgsCross.aarch64-multiplatform` in 
 | Host     | "aarch64-linux" |
 | Target   | "aarch64-linux" |
 
-In the vast majority of cases, just buildtimeDeps and runtimeDeps need to be specified:
+In the vast majority of cases, just `commands` and `libraries` need to be specified:
 
 ```nix
 { stdenv, cmake, openssl }:
@@ -75,10 +75,10 @@ stdenv.mkDerivation {
   ...
 
   # CMake is used at buildtime, to produce code for the host platform
-  buildtimeDeps = [ cmake ];
+  commands = [ cmake ];
 
   # openssl is used during the build for the host platform, producing code for the target platform
-  runtimeDeps = [ openssl ];
+  libraries = [ openssl ];
 
   ...
 }
