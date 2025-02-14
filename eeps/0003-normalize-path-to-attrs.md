@@ -12,7 +12,7 @@ Created: 2024-10-06
 # Summary
 
 Nixpkgs contains a lot of legacy "oddities" which cause some impediance mismatch
-when currating a large package set. One of these "oddities" is that is fairly
+when curating a large package set. One of these "oddities" is that is fairly
 common for packages to not align the expected file path. This proposal wants
 to enforce that the "way a package is consumed should reflect where it is placed.
 
