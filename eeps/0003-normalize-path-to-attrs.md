@@ -14,7 +14,7 @@ Created: 2024-10-06
 Nixpkgs contains a lot of legacy "oddities" which cause some impediance mismatch
 when curating a large package set. One of these "oddities" is that is fairly
 common for packages to not align the expected file path. This proposal wants
-to enforce that the "way a package is consumed should reflect where it is placed.
+to enforce that the way a package is consumed should reflect where it is placed.
 
 Normalizing names and file paths align nicely with [auto-called-directories](https://github.com/jonringer/nix-lib/commit/86961f6f0139a70ee29a74237dd59a9936299ed0)
 which eliminates the need for an explicit attr to reference the file or directory.
