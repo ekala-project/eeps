@@ -49,3 +49,23 @@ Since these Libraries are installed separately than the applications using them,
 ### 1. Patching the Dynamic Linker to load multiple versions of the same Library
 
 This is not a solution since *Most Dynamic Libraries assume that the Library and the Executable that uses it have access to the same instance of a Dynamic Library they both depend on.*
+
+# Proposed Solution
+
+The following is a concept of a 3-part system which should ultimately resolve all the aforementioned problems.
+
+### 1. Dependency tree analysis
+
+At either package evaluation or build time, we would analyze the tree of *Linked* Dynamic Libraries and ensure only one version of each Library is present.
+
+### 2. Runtime Loading validation
+
+We would have to patch glibc and make `dlopen` error out when a different version of a Library is already loaded, to prevent accidental impure behavior.
+
+### 3. System Library isolation
+
+System Libraries would have to run in a separate *link-map list* than the rest of the process, which would allow them to link to a different glibc version. This can be done in 2 ways:
+
+1. We can patch Libraries like `libvulkan` to use `dlmopen` instead of `dlopen` when loading drivers.
+
+2. We can write shims for Libraries like `libvulkan` that would load the real Library using `dlmopen`.
