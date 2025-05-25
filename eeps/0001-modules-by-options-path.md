@@ -1,5 +1,5 @@
 ---
-EEP: TBD
+EEP: 0026
 Title: Organize module file paths by option path
 Author: Jonathan Ringer
 Status: Draft
