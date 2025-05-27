@@ -23,7 +23,7 @@ To achieve this goal, I will attempt to add an upstream optional flag `--add-con
 If alejandra feels this is misaligned with the goals of the project, then maintain a
 soft fork of alejandra for ekapkgs as `ekapkgs-fmt`.
 
-The sole dependencie on rust also makes the packaging of alejandra suitable for
+The sole dependency on rust also makes the packaging of alejandra suitable for
 corepkgs.
 
 # Alternatives / prior-art
