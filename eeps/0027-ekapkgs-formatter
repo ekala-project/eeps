@@ -11,7 +11,7 @@ Created: 2025-05-25
 # Motivation
 
 Formatters help decrease merge conflicts dramatically by having a unified way
-to structure code. A good formatter can also increase readibility and maintainability
+to structure code. A good formatter can also increase readability and maintainability
 of code.
 
 # Desired formatter
