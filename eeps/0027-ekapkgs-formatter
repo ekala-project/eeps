@@ -1,0 +1,63 @@
+---
+EEP: 27
+Title: Official Ekapkgs formatter
+Author: jonringer
+Status: Draft
+Type: Standards Track
+Topic: Tooling
+Created: 2025-05-25
+---
+
+# Motivation
+
+Formatters help decrease merge conflicts dramatically by having a unified way
+to structure code. A good formatter can also increase readability and maintainability
+of code.
+
+# Desired formatter
+
+The desired formatter for me would be alejandra if "inner container space" was
+restored. For example, `[]` should be `[ ]` and `{a = "foo";}` should be `{ a = "foo"; }`.
+
+To achieve this goal, I will attempt to add an upstream optional flag `--add-container-space`.
+If alejandra feels this is misaligned with the goals of the project, then maintain a
+soft fork of alejandra for ekapkgs as `ekapkgs-fmt`.
+
+The sole dependency on rust also makes the packaging of alejandra suitable for
+corepkgs.
+
+# Alternatives / prior-art
+
+### `nixfmt-rfc-style`:
+
+Pros:
+- Official formatter of NixOS ecosystem
+  - Lessens "nix for ekapkgs" vs "nix for nixpkgs" divergence
+- Actively developed in nixpkgs
+
+Cons:
+- "Purity over readibility" mindset
+- Creates some very "long" code in certain situations
+  - Generally with many "container types, e.g. `( )` `[ ]` `{ }`"
+- Haskell packaging
+  - This would likely mean it couldn't be available in corepkgs
+- Actively hostile maintainers to RFC175 individuals
+  - RFC175 people (Ekala founders) are unable to interact with project
+
+### `nixpkg-fmt`:
+
+Pros:
+- Fairly close to "best practices" in nixpkgs before nixfmt RFC
+- Aligns most with the style most "old nixpkgs" hats are used to
+
+Cons:
+- Not actively maintained
+- Not predictable formatting
+  - It's more "convergent", rather than deterministic
+  - Sometimes requires the tool to be ran many times to converge to final state
+- Other issues as outlined in nixfmt RFC
+
+# Future work (optional)
+
+Apply formatter to ekapkgs repos
+
