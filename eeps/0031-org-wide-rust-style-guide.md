@@ -111,47 +111,119 @@ To ensure consistent, automated code formatting, all Rust projects must use the 
 ```toml
 # See https://rust-lang.github.io/rustfmt/ for configuration options
 
-# Use the 2021 edition of Rust
-edition                  = "2021"
-# Enforce Unix-style line endings
-newline_style            = "unix"
-# Use shorthand for struct field initialization
+# Configuring the Rust edition for the project
+edition = "2021"
+# Justification: Specifies the Rust edition to ensure compatibility with modern Rust features and syntax.
+# The 2021 edition is chosen for its balance of stability and access to newer language features like
+# improved pattern matching and const generics, which are widely supported in the current Rust ecosystem.
+# This aligns with the style guide's goal of maintaining a consistent and modern codebase.
+
+# Setting the newline style for cross-platform consistency
+newline_style = "unix"
+# Justification: Enforces Unix-style line endings (\n) to ensure consistency across platforms, especially
+# important for open-source projects with contributors using different operating systems. This prevents
+# formatting conflicts in version control and aligns with the style guide's emphasis on consistency.
+
+# Enabling shorthand syntax for struct initialization
 use_field_init_shorthand = true
-# Use `?` instead of `try!`
-use_try_shorthand        = true
+# Justification: Allows concise struct initialization (e.g., `Struct { field }` instead of `Struct { field: field }`).
+# This reduces visual clutter, improving readability, which supports the style guide's goal of reducing cognitive
+# overhead for developers.
 
-# Enable unstable features for more opinionated formatting.
-# This allows for features like macro formatting and import grouping.
+# Enabling shorthand syntax for try expressions
+use_try_shorthand = true
+# Justification: Simplifies error handling by allowing `?` instead of `try!` or explicit `match` expressions.
+# This promotes concise code, aligning with the style guide's aim for readable and maintainable codebases,
+# especially in error-prone areas.
+
+# Enabling experimental rustfmt features
 unstable_features = true
+# Justification: Enables experimental rustfmt features that may provide additional formatting capabilities
+# not yet available in stable releases. This is useful for an open-source project aiming to stay aligned
+# with evolving Rust standards, ensuring forward-compatibility while adhering to the style guide's
+# emphasis on consistency.
 
-# Set the maximum line width for comments
-comment_width               = 100
-# Condense wildcard suffixes in imports (e.g., `use std::io::{self, Read};`)
-condense_wildcard_suffixes  = true
-# Error if a line exceeds the maximum width
-error_on_line_overflow      = true
-# Format code snippets in documentation comments
+# Setting maximum width for comments
+comment_width = 100
+# Justification: Limits comment line length to 100 characters to ensure readability on standard displays
+# and in code review tools. This supports the style guide's requirement for clear, concise documentation
+# comments that are easy to read without excessive horizontal scrolling.
+
+# Condensing wildcard suffixes in use statements
+condense_wildcard_suffixes = true
+# Justification: Simplifies wildcard imports (e.g., `use foo::{bar, baz}` instead of `use foo::bar; use foo::baz;`).
+# This reduces the number of import lines, improving readability and aligning with the style guide's
+# requirement for organized and concise `use` declarations.
+
+# Enforcing error on line length overflow
+error_on_line_overflow = true
+# Justification: Causes rustfmt to fail if lines exceed the maximum width (default or configured).
+# This enforces strict adherence to formatting rules, ensuring consistency across the codebase and
+# preventing overly long lines that harm readability, in line with the style guide's readability goals.
+
+# Formatting code blocks within documentation comments
 format_code_in_doc_comments = true
-# Format macro bodies
-format_macro_bodies         = true
-# Format macro matchers
-format_macro_matchers       = true
-# Format string literals
-format_strings              = true
-# Group imports into three sections: `std`, external crates, and local modules
-group_imports               = "StdExternalCrate"
-# Control the granularity of imports
-imports_granularity         = "Module"
-# Add a trailing comma to match blocks
-match_block_trailing_comma  = true
-# Normalize documentation attributes
-normalize_doc_attributes    = true
-# Reorder `impl` items
-reorder_impl_items          = true
-# Use the 2024 style edition for the latest formatting rules
-style_edition               = "2024"
-# Wrap comments to the specified width
-wrap_comments               = true
+# Justification: Automatically formats code snippets in documentation comments (///) to match the project's
+# style. This ensures that examples in public documentation are consistent with the codebase, supporting
+# the style guide's mandate for comprehensive and clear documentation.
+
+# Formatting macro bodies
+format_macro_bodies = true
+# Justification: Ensures that macro definitions are formatted consistently, improving readability of complex
+# macro code. This supports the style guide's goal of reducing cognitive overhead in collaborative projects.
+
+# Formatting macro matchers
+format_macro_matchers = true
+# Justification: Ensures consistent formatting within macro matchers, making macro logic easier to follow.
+# This aligns with the style guide's emphasis on readable and maintainable code, especially for complex macros.
+
+# Formatting string literals
+format_strings = true
+# Justification: Ensures consistent formatting of string literals, such as wrapping long strings. This
+# improves readability of string-heavy code, supporting the style guide's focus on clear and maintainable code.
+
+# Grouping imports by type
+group_imports = "StdExternalCrate"
+# Justification: Groups imports in the order: standard library (`std`), external crates, then local modules.
+# This directly supports the style guide's requirement for `use` declarations to be grouped in this order,
+# ensuring predictable and organized import sections that are easier to navigate in large projects.
+
+# Setting import granularity to module level
+imports_granularity = "Module"
+# Justification: Groups imports by module (e.g., `use std::collections::{HashMap, Vec}`) rather than individual
+# items. This reduces visual clutter and aligns with the style guide's requirement for organized `use`
+# declarations, making imports easier to read and maintain.
+
+# Adding trailing commas in match blocks
+match_block_trailing_comma = true
+# Justification: Adds trailing commas in match expressions, ensuring consistency and making it easier to
+# add new arms without reformatting existing ones. This supports the style guide's goal of maintainability
+# in collaborative open-source projects.
+
+# Normalizing documentation attributes
+normalize_doc_attributes = true
+# Justification: Ensures consistent formatting of documentation attributes (e.g., `#[doc = "..."]` to `///`).
+# This supports the style guide's requirement for clear and comprehensive documentation comments by
+# ensuring they are formatted in a standard way, improving readability.
+
+# Reordering implementation items
+reorder_impl_items = true
+# Justification: Reorders methods within `impl` blocks to follow a consistent order (e.g., trait methods
+# before inherent methods). While not directly addressing the style guide's top-level item ordering, it
+# improves consistency within `impl` blocks, supporting the guide's emphasis on predictability and
+# ease of navigation.
+
+# Setting the style edition for formatting
+style_edition = "2024"
+# Justification: Aligns rustfmt with the 2024 style edition, which includes modern formatting conventions
+# and import sorting improvements. This ensures the project stays up-to-date with Rust's evolving style
+# standards, supporting the style guide's goal of a consistent and modern codebase.
+
+# Wrapping comments to fit within the comment width
+wrap_comments = true
+# Justification: Automatically wraps comments to fit within the `comment_width` (100 characters), ensuring
+# they remain readable without manual intervention. This supports the style guide's requirement for clear
+# and concise documentation comments that are easy to read in code reviews and documentation.
 ```
 
 ### 3. Enforcement
