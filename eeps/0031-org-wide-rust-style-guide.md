@@ -72,7 +72,9 @@ use super::utils::helper_function;
 
 ##### Other Items
 
-All other top-level items—including modules, constants, types, traits, and functions—must be sorted alphabetically by their identifier.
+All other top-level items—including modules, constants, traits, and functions—must be sorted alphabetically by their identifier.
+
+Types (`struct`, `enum`, and `type` aliases) must be sorted as a single, interlaced group, alphabetically by their identifier.
 
 ##### Visibility
 
