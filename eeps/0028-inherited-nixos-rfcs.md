@@ -30,6 +30,15 @@ Both Accepted:
 - [0052 - Move away from static uIDs + gIDs](https://github.com/NixOS/rfcs/pull/45)
   - This is unmaintainable, alternatives should be explored
 - [0072 - Switch to CommonMark for documentation](https://github.com/NixOS/rfcs/pull/45)
+- [0089 - Collect non-source package meta attribute](https://github.com/NixOS/rfcs/pull/89)
+  - Useful for SBOMs and some decision making around `override`'ing
+  - Likely adopt `meta.sourceProvenance` as-is
+  - Unsure about `config.allowNonSource`, doesn't change whether a package is usable. Some source builds are atrocious.
+- [0108 - NixOS Container rewrite](https://github.com/NixOS/rfcs/pull/108)
+  - Exposing systemd-nspawn containers for systemd systems seems reasonable
+  - May explore other options for non-systemd module evaluation
+- [0118 - Formalize testing for nixpkgs packages](https://github.com/NixOS/rfcs/pull/118)
+  - `passthru.tests` is still valuable
 
 Rejected NixOS RFCs, but interesting ideas:
 - [0012 - Declarative virutal machines](https://github.com/NixOS/rfcs/pull/12):
@@ -55,6 +64,9 @@ Rejected NixOS RFCs, but interesting ideas:
 - [0074 - Community Coordination Hub](https://github.com/NixOS/rfcs/pull/74)
   - https://github.com/kubernetes/community but for nix.
   - Ekala's scope is less defined than NixOS. May be interesting
+- [0086 - NixOS generation APIs](https://github.com/NixOS/rfcs/pull/86)
+  - Higher fidelity of information around generations is a good idea
+  - Closed because scope was too small for RFC
 
 Rejected NixOS RFCs, but superceded by Eka/Ekapkgs:
 - [0022 - Minimal module list](https://github.com/NixOS/rfcs/pull/22)
@@ -75,6 +87,8 @@ Rejected NixOS RFCs, but superceded by Eka/Ekapkgs:
 - [0043 - RFC Steering Committee Rotation](https://github.com/NixOS/rfcs/pull/43):
   - EEP council will have a similar rotation to avoid burnout, specifics not yet defined
 - [0046 - Platform Support Tiers](https://github.com/NixOS/rfcs/pull/46)
+- [0087 - Promote aarch64-linux to Tier 1](https://github.com/NixOS/rfcs/pull/46)
+- [0112 - Demote x86_64-darwin support to Tier 3 ](https://github.com/NixOS/rfcs/pull/112)
   - This needs to be re-aligned with the poly repo structure
   - corepkgs will have the most wide support, and downstream repos will have less
 - [0049 - Flakes](https://github.com/NixOS/rfcs/pull/46)
@@ -102,6 +116,33 @@ Rejected NixOS RFCs, but superceded by Eka/Ekapkgs:
 - [0084 - Input-aware fetchers](https://github.com/NixOS/rfcs/pull/84)
   - FODs should have names which somewhat reflect the contents they are fetching
   - https://github.com/NixOS/rfcs/pull/171
+- [0085 - NixOS Release stabilization](https://github.com/NixOS/rfcs/pull/85)
+  - Part of the motivation for the poly repo structue was to avoid complexity around staging
+- [0088 - Nixpkgs Breaking Change policy](https://github.com/NixOS/rfcs/pull/88)
+  - Some sort of SOP for breaking change needs to be adtoped
+- [0091 - Pure Object Prototypes](https://github.com/NixOS/rfcs/pull/91)
+  - This is largely my [mkManyVariants](https://github.com/ekala-project/eeps/pull/5) proposal but using inheritance rather than continuation passing
+- [0095 - Enable doCheck by deafult](https://github.com/NixOS/rfcs/pull/95)
+  - Tests should be moved out of the build drv. https://github.com/ekala-project/eeps/issues/20
+- [0101 - Nix formatting](https://github.com/NixOS/rfcs/pull/101)
+  - `nixfmt-rfc-style` just creates massive noise. Tentatively thinking of just using `nixpkgs-fmt` or self-maintained fork
+- [0102 - Moderation Team](https://github.com/NixOS/rfcs/pull/102)
+  - A moderation body which isn't accountable to anyone is not good
+- [0105 - Flake labels](https://github.com/NixOS/rfcs/pull/105)
+  - Eka will replace flake use cases
+- [0107 - Nixpkgs `version` attribute usage normalization](https://github.com/NixOS/rfcs/pull/107)
+  - TBD how versioning would work in the poly repo world
+- [0109 - Nixpkgs Generated Code Policy](https://github.com/NixOS/rfcs/pull/107)
+  - This can be determined by individual language ecosystem repositories
+  - Some normalization should be done at a later date
+- [0111 - Ensure Officially Hosted Communications are Public](https://github.com/NixOS/rfcs/pull/111)
+  - Yes, one community, one fight
+- [0114 - Code of Conduct for NixOS Community ](https://github.com/NixOS/rfcs/pull/114)
+  - We have [Code of Ethics](https://github.com/ekala-project/.github/tree/master?tab=coc-ov-file)
+- [0121 - Migrate OpenGL References to API-Agnostic Terms](https://github.com/NixOS/rfcs/pull/121)
+  - `/run/opengl-driver/` was always overly-narrow, `/run/system-drivers/` or something similar should just be used instead
+  - `/run/opengl-drvier/` will still exist as compatibility shim to nixpkgs
+
 
 Both Rejected:
 - [0003 - Simple Override Strategy](https://github.com/NixOS/rfcs/pull/3):
@@ -117,8 +158,19 @@ Both Rejected:
   - No, just have a healthy collection of core maintainers which can do minor security pushes
 - [0082 - lib.experimental](https://github.com/NixOS/rfcs/pull/20)
   - No
+- [0098 - Community Team](https://github.com/NixOS/rfcs/pull/98)
+  - Marks the beginning of the end for the NixOS community
+- [0099 - Oil shell for stdenv builder](https://github.com/NixOS/rfcs/pull/99)
+  - Using shell specific features will likely cause issues for dev shells
+  - marginal improvement for potential massive risks
+- [0100 - Sign commits](https://github.com/NixOS/rfcs/pull/100)
+  - Should be encouraged, but not mandated. All code is reviewed
 
-Ignored RFCs (Nix-cli related):
+Accept in NixOS, rejected for Ekala:
+- [0094 - Matrix for Official Chat](https://github.com/NixOS/rfcs/pull/94):
+  - No
+
+Ignored RFCs (Nix-cli, RFC, or infra related):
 - [0004 - Replace Unicode Quotes](https://github.com/NixOS/rfcs/pull/3):
   - Mostly related to Nix
 - [0005 - Nix encryption](https://github.com/NixOS/rfcs/pull/5):
@@ -145,6 +197,12 @@ Ignored RFCs (Nix-cli related):
 - [0057 - Nix-Cas rfc](https://github.com/NixOS/rfcs/pull/57)
 - [0062 - Content-addressed paths](https://github.com/NixOS/rfcs/pull/62)
 - [0068 - Minimal daemon](https://github.com/NixOS/rfcs/pull/68)
+- [0092 - Computed derivations](https://github.com/NixOS/rfcs/pull/92)
+- [0093 - RFC Categories](https://github.com/NixOS/rfcs/pull/93)
+- [0097 - Unset read permission bit on /nix/store for other users](https://github.com/NixOS/rfcs/pull/97)
+- [0104 - Managing hydra configuration with terraform](https://github.com/NixOS/rfcs/pull/104)
+- [0106 - Nix release schedule](https://github.com/NixOS/rfcs/pull/104)
+- [0118 - Extra semicolon as a warning instead of an syntax error](https://github.com/NixOS/rfcs/pull/118)
 
 # Changes
 
