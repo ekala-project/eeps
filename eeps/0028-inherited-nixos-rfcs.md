@@ -25,6 +25,11 @@ Both Accepted:
   - This later became x86-i686Linux in [RFC0038](https://github.com/NixOS/rfcs/pull/38), but becoming less relevant each year
 - [0042 - NixOS settings options](https://github.com/NixOS/rfcs/pull/37)
   - Absolute ergonomic win
+- [0045 - Deprecating unquoted URL syntax](https://github.com/NixOS/rfcs/pull/45)
+  - Why Nix has native unquoted url syntax, who knows
+- [0052 - Move away from static uIDs + gIDs](https://github.com/NixOS/rfcs/pull/45)
+  - This is unmaintainable, alternatives should be explored
+- [0072 - Switch to CommonMark for documentation](https://github.com/NixOS/rfcs/pull/45)
 
 Rejected NixOS RFCs, but interesting ideas:
 - [0012 - Declarative virutal machines](https://github.com/NixOS/rfcs/pull/12):
@@ -40,10 +45,18 @@ Rejected NixOS RFCs, but interesting ideas:
   - Some way to approve/sign nix expressions
   - Currently code just relies on author and committer acting in good faith
 - [0039 - Unprivileged maintainer team](https://github.com/NixOS/rfcs/pull/34)
+- [0050 - Merge bot for maintainers](https://github.com/NixOS/rfcs/pull/50)
   - Would be nice to have finer granularity of merge abilities
-  - Mitigated by EkaCI and tooling
+  - Mitigated by EkaCI, finer commit access per repo for ekapkgs, and other tooling
+- [0051 - Mark stale nixpkgs issues](https://github.com/NixOS/rfcs/pull/51)
+  - Should probably define some sort of lifecycle
+- [0059 - Systemd Service Secretes](https://github.com/NixOS/rfcs/pull/59)
+  - We should investigate how to integrate spiffe/spire into auth workflow
+- [0074 - Community Coordination Hub](https://github.com/NixOS/rfcs/pull/74)
+  - https://github.com/kubernetes/community but for nix.
+  - Ekala's scope is less defined than NixOS. May be interesting
 
-Rejected NixOS RFCs, but superceded by Ekapkgs:
+Rejected NixOS RFCs, but superceded by Eka/Ekapkgs:
 - [0022 - Minimal module list](https://github.com/NixOS/rfcs/pull/22)
   - Corepkgs will expose a minimal module set for creating a system
   - Ekapkgs will have the option to do a more "feature rich" module evaluation
@@ -59,6 +72,36 @@ Rejected NixOS RFCs, but superceded by Ekapkgs:
   - Formalized the NixOS RFC process and Steering Committee
   - To be replaced by EEPs and related Steering Committee (which will avoid the need for shepards)
     - Current NixOS RFC process takes many months and the barriers to landing anything makes contributions unlikely
+- [0043 - RFC Steering Committee Rotation](https://github.com/NixOS/rfcs/pull/43):
+  - EEP council will have a similar rotation to avoid burnout, specifics not yet defined
+- [0046 - Platform Support Tiers](https://github.com/NixOS/rfcs/pull/46)
+  - This needs to be re-aligned with the poly repo structure
+  - corepkgs will have the most wide support, and downstream repos will have less
+- [0049 - Flakes](https://github.com/NixOS/rfcs/pull/46)
+  - Eka will supercede this
+- [0064 - New Documentation format](https://github.com/NixOS/rfcs/pull/64)
+  - Use similar md format (original RFC is about moving away from dockbook)
+- [0067 - Common override interface](https://github.com/NixOS/rfcs/pull/67)
+  - https://github.com/ekala-project/eeps/issues/21
+  - overrideAttrs is always overriden to the outermost wrapper
+  - drop `overrideDervation`
+  - change `override` to `overrideDeps`
+- [0070 - Merge nixos-hardware into nixpkgs](https://github.com/NixOS/rfcs/pull/70)
+  - There should be more hardware detection that what Nixpkgs normally has
+  - To what degree is another question
+    - Nixos-hardware is a bit "exactly what you want" and "not what you want at all"
+- [0077 - Stale issue amendment](https://github.com/NixOS/rfcs/pull/77)
+- [0079 - No more direct pushes to master](https://github.com/NixOS/rfcs/pull/79)
+  - Corepkgs to Ekapkgs should always be green to green, no longer relevant
+- [0080 - Change NixOS release to YY.05, YY.11](https://github.com/NixOS/rfcs/pull/80)
+  - This was to align with gnome release schedule, which was the recommended DE
+  - Ekapkgs will likely adopt hyprland as default DE
+- [0081 - Show unmaintained packages](https://github.com/NixOS/rfcs/pull/81)
+  - Package may "get pushed downstream" to a less polished package set
+  - Packages may only get "promoted" to ekapkgs if they are sufficient important/maintained
+- [0084 - Input-aware fetchers](https://github.com/NixOS/rfcs/pull/84)
+  - FODs should have names which somewhat reflect the contents they are fetching
+  - https://github.com/NixOS/rfcs/pull/171
 
 Both Rejected:
 - [0003 - Simple Override Strategy](https://github.com/NixOS/rfcs/pull/3):
@@ -72,6 +115,8 @@ Both Rejected:
 - [0020 - Security On Call](https://github.com/NixOS/rfcs/pull/20)
   - "On call" to respond to events
   - No, just have a healthy collection of core maintainers which can do minor security pushes
+- [0082 - lib.experimental](https://github.com/NixOS/rfcs/pull/20)
+  - No
 
 Ignored RFCs (Nix-cli related):
 - [0004 - Replace Unicode Quotes](https://github.com/NixOS/rfcs/pull/3):
@@ -90,11 +135,16 @@ Ignored RFCs (Nix-cli related):
 - [0014 - Improve import from derivation](https://github.com/NixOS/rfcs/pull/14)
   - Mainly a Nix concern, but interesting
 - [0025 - Nix Core Team](https://github.com/NixOS/rfcs/pull/25)
-  - NixOS/nix team, nothing to do with packaging
+- [0044 - Disband Nix Core Team](https://github.com/NixOS/rfcs/pull/44)
+  - Lmao
 - [0028 - Nix Release Model](https://github.com/NixOS/rfcs/pull/28)
 - [0040 - "Ret-cont" recursive Nix](https://github.com/NixOS/rfcs/pull/40)
 - [0041 - SELinux Support](https://github.com/NixOS/rfcs/pull/41)
   - Intesting, but requires Nix cli/daemon/store changes
+- [0058 - Name Ellipses](https://github.com/NixOS/rfcs/pull/58)
+- [0057 - Nix-Cas rfc](https://github.com/NixOS/rfcs/pull/57)
+- [0062 - Content-addressed paths](https://github.com/NixOS/rfcs/pull/62)
+- [0068 - Minimal daemon](https://github.com/NixOS/rfcs/pull/68)
 
 # Changes
 
