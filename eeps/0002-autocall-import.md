@@ -2,7 +2,7 @@
 Title: Add autoCall helper function to package sets
 Author: jonringer
 Discussions-To: https://github.com/NixOS/nixpkgs/pull/274179
-Status: Draft
+Status: Provisional
 Type: Standards Track
 Topic: Packaging
 Created: 2024-10-09
