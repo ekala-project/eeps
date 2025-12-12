@@ -24,10 +24,18 @@ replaced is also not intuitive for many users.
 To reduce the "weirdness budget" of including a dependency, make these hooks
 be specified explicitly.
 
-# Detailed implementation / Specification (optional)
+# Detailed implementation / Specification
 
-See corepkgs#47 for an example for `cmake`. But this would apply to all tools
+See [corepkgs#47](https://github.com/ekala-project/corepkgs/pull/47) for an example for `cmake`. But this would apply to all tools
 which require a configure step.
+
+Example replacement:
+```diff
+  nativeBuildInputs = [
+    cmake
++   cmake.configurePhaseHook
+  ];
+```
 
 # Prior art (optional)
 
