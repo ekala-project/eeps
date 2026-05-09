@@ -46,33 +46,36 @@ A regular expression pattern that valid version strings must match. The update t
 - Restricting to specific version branches (e.g., `"^2\\..*"` for v2.x only)
 - Excluding versions with specific suffixes or prefixes
 
-## `version-type` (string)
+## `semver-strategy` (string)
 
-Specifies the version detection strategy to use when checking for updates.
+Controls which version updates are acceptable based on semantic versioning constraints.
 
 **Type:** `string`
-**Default:** `null` (auto-detect)
+**Default:** `"latest"` (accept any newer non-prerelease version)
 **Supported values:**
-- `"stable"` - Only consider stable releases (default)
-- `"unstable"` - Include pre-release versions
-- `"branch"` - Track a specific branch
-- `"commit"` - Track specific commits. Questionable value, `skip` may be more appropriate
-- Custom values as supported by the update tool implementation
+- `"latest"` - Accept any newer non-prerelease version (default)
+- `"major"` - Same as "latest" - allow major version updates
+- `"minor"` - Only update to latest minor version within the same major version (e.g., 1.x.x)
+- `"patch"` - Only update to latest patch version within the same major.minor version (e.g., 1.2.x)
+
+**Use cases:**
+- Conservative updates: Use `"patch"` to minimize breaking changes
+- Moderate updates: Use `"minor"` to get new features without major version jumps
+- Packages with non-standard versioning schemes
+
+**Note:** Maps to the existing `SemverStrategy` enum in ekapkgs-update.
+
+## `include-prereleases` (boolean)
+
+When set to `true`, allows the update tool to consider pre-release versions (alpha, beta, rc, etc.) as valid update candidates.
+
+**Type:** `bool`
+**Default:** `false` (exclude prereleases)
 
 **Use cases:**
 - Packages that track unstable/development versions
-- Packages that follow a specific branch rather than tags
-- Packages with non-standard versioning schemes
-
-## `branch` (string)
-
-Specifies the branch to follow. Useful for maintenance branches. Only supported for some fetchers.
-
-**Type:** `string`
-**Default:** `null` (auto-detect)
-
-**Use cases:**
-- Maintenance branches which receive backports
+- Tracking development versions (e.g., Rust nightly, beta channels)
+- Early adopters who want to test upcoming versions
 
 
 # Example Usage
@@ -94,24 +97,38 @@ Specifies the branch to follow. Useful for maintenance branches. Only supported 
       version-regex = "^2\\..*";
     };
 
-    # Allow for prereleses. E.g. "0.1.0-alpha.5";
+    # Allow for prereleases. E.g. "0.1.0-alpha.5";
     passthru.ekapkgs-update = {
-      version-type = "unstable";
+      include-prereleases = true;
     };
 
-    # Pin to a version range, but allow unstable tags
+    # Only accept patch updates within current version
     passthru.ekapkgs-update = {
-      version-regex = "^1\\.[0-9]+\\.[0-9]+$";
-      version-type = "stable";
+      semver-strategy = "patch";
+    };
+
+    # Track minor versions, including prereleases
+    passthru.ekapkgs-update = {
+      semver-strategy = "minor";
+      include-prereleases = true;
     };
 
 }
 ```
 
-# Still questionable features
-
-- **`commit-message-template` (string)** - Custom commit message format
-
 # Future work
 
-- Implementation into [ekapkgs-update](https://github.com/ekala-project/ekapkgs-update/)
+## Branch Tracking
+
+Tracking specific Git branches (e.g., `stable`, `lts-v2`) is deferred to future work as it requires a fundamentally different update mechanism than release/tag-based updates. Proposed attribute:
+
+```nix
+passthru.ekapkgs-update = {
+  follow-branch = "stable";  # Track specific branch instead of releases
+};
+```
+
+**Challenges:**
+- Branches don't have inherent version numbers
+- Requires different API calls (branches endpoint vs releases/tags)
+- Version comparison would need to use commit metadata instead of semver
