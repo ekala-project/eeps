@@ -35,17 +35,45 @@ Current issues with `mkDerivation`:
 ## `mkEkaPackage` as a scope member
 
 Unlike `stdenv.mkDerivation`, `mkEkaPackage` is not attached to `stdenv`. It
-is a member of the package scope itself, defined in `stage.nix` or a top-level
-overlay. This is a deliberate break from the `stdenv.mkDerivation` paradigm.
+is a member of the package scope itself. This is a deliberate break from the
+`stdenv.mkDerivation` paradigm.
 
 `mkEkaPackage` is an attrset with `__functor`, making it both callable and
-introspectable:
+introspectable. It carries references to `stdenv` and the package scopes so
+that users can discover build details:
+- `mkEkaPackage.stdenv.cc` -- the compiler
+- `mkEkaPackage.stdenv.hostPlatform` -- platform information
+- `mkEkaPackage.scopes.buildHost` -- the build-time package scope
+
+## Automatic construction from scope machinery
+
+`mkEkaPackage` is constructed automatically by the existing scope creation
+functions. Both `makeScope` and `makeScopeWithSplicing'` already produce a
+`self` fixpoint with `callPackage`, `newScope`, and `overrideScope`. The
+scopes information needed by `mkEkaPackage` is already present in these
+functions.
+
+### Top-level scope
+
+The top-level package set is assembled via overlays in `stage.nix`. The
+`splice` overlay (`stdenv/splice.nix`) already defines `newScope`,
+`callPackage`, and `makeScopeWithSplicing'`, and has access to all six
+platform scopes via `pkgs.pkgsBuildHost`, `pkgs.pkgsHostTarget`, etc.
+
+`mkEkaPackage` is added to the `splice` overlay alongside these:
 
 ```nix
-# Defined in stage.nix overlay
+# stdenv/splice.nix — added to the returned attrset
 mkEkaPackage = {
-  inherit stdenv;
-  inherit scopes;
+  inherit (pkgs) stdenv;
+  scopes = {
+    buildBuild   = pkgs.pkgsBuildBuild;
+    buildHost    = pkgs.pkgsBuildHost;
+    buildTarget  = pkgs.pkgsBuildTarget;
+    hostHost     = pkgs.pkgsHostHost;
+    hostTarget   = pkgs.pkgsHostTarget;
+    targetTarget = pkgs.pkgsTargetTarget;
+  };
 
   __functor = self: fnOrAttrs:
     (import ./generic/make-eka-package.nix {
@@ -55,34 +83,80 @@ mkEkaPackage = {
 };
 ```
 
-Where `scopes` is:
+Because the `splice` overlay receives `pkgs` (the `self` of the top-level
+fixpoint), `mkEkaPackage` automatically has access to the correct scopes.
+
+### Sub-scopes via `makeScopeWithSplicing'`
+
+Language ecosystems (python, perl, lua, xorg, llvm, etc.) create their package
+scopes via `makeScopeWithSplicing'`. This function already receives
+`otherSplices` which contains all six platform variants of the sub-scope, and
+it already has access to `splicePackages` and `newScope` from the top-level.
+
+`mkEkaPackage` can be constructed automatically inside `makeScopeWithSplicing'`
+by adding it to the `self` fixpoint:
+
 ```nix
-scopes = {
-  buildBuild   = self.pkgsBuildBuild;
-  buildHost    = self.pkgsBuildHost;
-  buildTarget  = self.pkgsBuildTarget;
-  hostHost     = self.pkgsHostHost;
-  hostTarget   = self.pkgsHostTarget;
-  targetTarget = self.pkgsTargetTarget;
+# In lib.makeScopeWithSplicing' — the self fixpoint gains mkEkaPackage
+self = f self // {
+  newScope = scope: newScope (spliced // scope);
+  callPackage = newScope spliced;
+  overrideScope = g: makeScopeWithSplicing' { ... } { f = extends g f; };
+  packages = f;
+
+  # New: mkEkaPackage constructed from the scope's own splices
+  mkEkaPackage = {
+    stdenv = self.stdenv or otherSplices.selfHostTarget.stdenv;
+    scopes = {
+      buildBuild   = otherSplices.selfBuildBuild;
+      buildHost    = otherSplices.selfBuildHost;
+      buildTarget  = otherSplices.selfBuildTarget;
+      hostHost     = otherSplices.selfHostHost;
+      hostTarget   = self;
+      targetTarget = otherSplices.selfTargetTarget;
+    };
+    __functor = self: fnOrAttrs: /* ... */;
+  };
 };
 ```
 
-Because `mkEkaPackage` lives in the package scope, it naturally has access to
-the correct scopes for that package set. No factory parameter threading through
-`stdenv` is needed. The `stdenv` derivation stays unchanged.
+This means every scope created with `makeScopeWithSplicing'` automatically
+gets a correctly-configured `mkEkaPackage`. No manual wiring is needed per
+ecosystem. A python package can use `mkEkaPackage` from its own scope, and the
+`commands` function will receive `python3Packages.pkgsBuildHost` (which
+contains python-specific build tools) rather than the top-level
+`pkgsBuildHost`.
 
-Users can inspect build details through `mkEkaPackage`:
-- `mkEkaPackage.stdenv.cc` -- the compiler
-- `mkEkaPackage.stdenv.hostPlatform` -- platform information
-- `mkEkaPackage.stdenv.isLinux` -- convenience flags
-- `mkEkaPackage.scopes.buildHost` -- the package scope for build-time tools
+For `makeScope` (used by simpler ecosystems like R and Rust that don't need
+cross-compilation splicing), `mkEkaPackage` is constructed with `self` as the
+only scope (since there are no `otherSplices`):
+
+```nix
+# In lib.makeScope
+self = f self // {
+  newScope = scope: newScope (self // scope);
+  callPackage = self.newScope { };
+  overrideScope = g: makeScope newScope (extends g f);
+  packages = f;
+
+  mkEkaPackage = {
+    stdenv = self.stdenv;
+    scopes = {
+      buildHost  = self;
+      hostTarget = self;
+      # remaining scopes fall back to self in non-cross contexts
+    };
+    __functor = self: fnOrAttrs: /* ... */;
+  };
+};
+```
 
 ## Dependency declaration
 
-`mkEkaPackage` introduces `commands` and `libraries` as functions that receive
-the appropriate package scope and return a named attrset of dependencies. The
-scope is the un-spliced package set for the correct platform offset, so no
-`__spliced` extraction is needed.
+`commands` and `libraries` are functions that receive the appropriate package
+scope and return a named attrset of dependencies. The scope is the un-spliced
+package set for the correct platform offset, so no `__spliced` extraction is
+needed.
 
 | Attribute              | Replaces                       | Scope received    |
 |------------------------|--------------------------------|-------------------|
@@ -142,12 +216,13 @@ targeted by name rather than by value equality.
 
 Helpers like `buildPythonPackage` follow the same pattern: they are `__functor`
 attrsets in their respective package scope that wrap `mkEkaPackage`. Because
-the helper lives in the scope, it can pull its internal dependencies (hooks,
-wrappers, etc.) from the same scope rather than receiving them via a long
-`callPackage` argument list.
+`mkEkaPackage` is automatically constructed in each scope via
+`makeScopeWithSplicing'`, the helper doesn't need to receive its internal
+dependencies via `callPackage` — it pulls them from the scope that
+`mkEkaPackage` already knows about.
 
 ```nix
-# Simplified buildEkaPythonPackage
+# Simplified buildEkaPythonPackage — defined within the python package scope
 buildEkaPythonPackage = {
   inherit (mkEkaPackage) stdenv scopes;
   inherit python;
@@ -171,9 +246,9 @@ buildEkaPythonPackage = {
 ```
 
 The helper's `callPackage` argument list shrinks from 30+ packages to just
-`{ lib, mkEkaPackage, python }`. All internal dependencies (hooks like
-`pypaBuildHook`, `pythonCatchConflictsHook`, etc.) come from the scope passed
-to `commands`, not from `callPackage` injection.
+`{ lib, mkEkaPackage, python }`. Internal dependencies like `pypaBuildHook`
+and `pythonCatchConflictsHook` come from the scope passed to `commands`, not
+from `callPackage` injection.
 
 # Example usage
 
@@ -289,6 +364,17 @@ variant because each dependency function receives the scope for its platform
 offset. This eliminates the entire `splice.nix` machinery for packages using
 `mkEkaPackage` and should improve cross-compilation evaluation performance.
 
+## Setup hook compatibility
+
+Setup hooks use `hostOffset` and `targetOffset` variables (provided by
+`setup.sh`'s `activatePackage`) to determine their role in the build. These
+offsets are assigned based on which dependency slot a package lands in, not how
+it was declared in the Nix expression. Since `mkEkaPackage` maps `commands` to
+the `nativeBuildInputs` slot `(-1, 0)`, `libraries` to the `buildInputs` slot
+`(0, 1)`, etc., the offsets are identical to what `mkDerivation` produces.
+Hooks like `cc-wrapper` and `pkg-config-wrapper` that branch on
+`hostOffset`/`targetOffset` are unaffected.
+
 # Unresolved questions
 
 - Not all derivation inputs fit neatly into `commands` and `libraries`. Setup
@@ -307,9 +393,16 @@ offset. This eliminates the entire `splice.nix` machinery for packages using
   could matter in edge cases.
 - This is a large divergence from Nixpkgs paradigms. Packages written for
   `mkEkaPackage` will not be trivially portable back to Nixpkgs.
+- Whether `mkEkaPackage` should be added to `lib.makeScope` as well or only
+  to `lib.makeScopeWithSplicing'`. Simpler scopes using `makeScope` don't have
+  `otherSplices`, so their `mkEkaPackage` would have limited cross-compilation
+  support.
 
 # Future work
 
+- Modify `lib.makeScopeWithSplicing'` and `lib.makeScope` in nix-lib to
+  automatically construct `mkEkaPackage` on every scope.
+- Add `mkEkaPackage` to the top-level `splice` overlay in `stdenv/splice.nix`.
 - Migrate package expressions to the new paradigm incrementally.
 - When `builtins.strictDerivation` becomes available, adopt it as the
   underlying derivation call. The explicit scope-based dependency model
