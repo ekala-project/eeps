@@ -29,6 +29,11 @@ Current issues with `mkDerivation`:
   a source of subtle cross-compilation bugs
 - `nativeBuildInputs` and `buildInputs` are legacy names that don't communicate
   their cross-compilation semantics
+- Switching the C compiler requires replacing the entire stdenv (`clangStdenv`,
+  `gccStdenv`, `gcc12Stdenv`, etc.), which triggers mass rebuilds of the
+  transitive closure and creates a combinatorial explosion of stdenv variants.
+  `stdenvNoCC` exists solely to omit the compiler. These should be per-package
+  decisions, not per-stdenv decisions
 
 # Detailed implementation
 
@@ -39,9 +44,9 @@ is a member of the package scope itself. This is a deliberate break from the
 `stdenv.mkDerivation` paradigm.
 
 `mkEkaPackage` is an attrset with `__functor`, making it both callable and
-introspectable. It carries references to `stdenv` and the package scopes so
-that users can discover build details:
-- `mkEkaPackage.stdenv.cc` -- the compiler
+introspectable. It carries references to `stdenv`, the default C compiler, and
+the package scopes so that users can discover build details:
+- `mkEkaPackage.cc` -- the default C compiler (see [CC attribute](#cc-attribute))
 - `mkEkaPackage.stdenv.hostPlatform` -- platform information
 - `mkEkaPackage.scopes.buildHost` -- the build-time package scope
 
@@ -66,6 +71,7 @@ platform scopes via `pkgs.pkgsBuildHost`, `pkgs.pkgsHostTarget`, etc.
 # stdenv/splice.nix — added to the returned attrset
 mkEkaPackage = {
   inherit (pkgs) stdenv;
+  cc = pkgs.stdenv.cc;  # default CC, overridable per-package
   scopes = {
     buildBuild   = pkgs.pkgsBuildBuild;
     buildHost    = pkgs.pkgsBuildHost;
@@ -78,7 +84,7 @@ mkEkaPackage = {
   __functor = self: fnOrAttrs:
     (import ./generic/make-eka-package.nix {
       inherit lib config;
-      inherit (self) stdenv scopes;
+      inherit (self) stdenv cc scopes;
     }).mkEkaPackage fnOrAttrs;
 };
 ```
@@ -107,6 +113,7 @@ self = f self // {
   # New: mkEkaPackage constructed from the scope's own splices
   mkEkaPackage = {
     stdenv = self.stdenv or otherSplices.selfHostTarget.stdenv;
+    cc = (self.stdenv or otherSplices.selfHostTarget.stdenv).cc;
     scopes = {
       buildBuild   = otherSplices.selfBuildBuild;
       buildHost    = otherSplices.selfBuildHost;
@@ -141,6 +148,7 @@ self = f self // {
 
   mkEkaPackage = {
     stdenv = self.stdenv;
+    cc = self.stdenv.cc;
     scopes = {
       buildHost  = self;
       hostTarget = self;
@@ -173,6 +181,137 @@ When `mkEkaPackage` constructs the derivation, each attrset is flattened to a
 list via `builtins.attrValues`, with `null` values filtered out and `getDev`
 applied to each derivation. The flattened lists are passed to the underlying
 `derivation` call (or `builtins.strictDerivation` when available).
+
+## CC attribute
+
+The `cc` attribute decouples the C compiler from stdenv, making it a
+per-package decision rather than a per-stdenv decision. This eliminates the
+need for `clangStdenv`, `gccStdenv`, `gcc12Stdenv`, `stdenvNoCC`, and other
+stdenv variants that exist solely to change the compiler.
+
+### Motivation
+
+In the current `mkDerivation` paradigm, `stdenv` force-injects `cc` into
+`defaultNativeBuildInputs` for every derivation (controlled by the `hasCC`
+flag). Switching the compiler requires replacing the entire stdenv, which
+changes the derivation that provides `setup.sh`, `initialPath`, and all other
+stdenv infrastructure — triggering mass rebuilds even though the only thing
+that actually changed was the compiler.
+
+With `mkEkaPackage`, the compiler is separated from the stdenv derivation:
+stdenv continues to provide the build environment (`setup.sh`, platform
+information, shell hooks), while `cc` is an independent, overridable attribute.
+
+### Default behavior
+
+When a package expression does not specify `cc`, `mkEkaPackage` uses the
+default from `mkEkaPackage.cc` (which is `stdenv.cc`). This matches the
+current behavior: packages get the same compiler they would get from
+`stdenv.mkDerivation` without any opt-in.
+
+The resolved `cc` is automatically prepended to the flattened `commands`
+(i.e., `nativeBuildInputs`) unless the user explicitly sets `cc = null`.
+Packages that already include a compiler in their `commands` attrset under
+the key `cc` will use that value instead — the explicit `commands` entry
+takes precedence.
+
+### Specifying a different compiler
+
+```nix
+# Use Clang instead of GCC (replaces clangStdenv)
+mkEkaPackage (finalAttrs: {
+  pname = "mypackage";
+  # ...
+  cc = scope: scope.clang;
+  libraries = scope: { inherit (scope) zlib; };
+})
+
+# Pin a specific GCC version (replaces gcc12Stdenv)
+mkEkaPackage (finalAttrs: {
+  pname = "legacy-app";
+  # ...
+  cc = scope: scope.gcc12;
+})
+
+# No compiler needed (replaces stdenvNoCC)
+mkEkaPackage (finalAttrs: {
+  pname = "my-data-package";
+  # ...
+  cc = null;
+})
+
+# Default — uses mkEkaPackage.cc (same as stdenv.cc today)
+mkEkaPackage (finalAttrs: {
+  pname = "normal-package";
+  # ...
+  # cc is omitted; the default compiler is used
+})
+```
+
+When `cc` is a function, it receives `pkgsBuildHost` (the same scope that
+`commands` receives), since the compiler is a build-time tool.
+
+### Hardening flags
+
+`make-derivation.nix` currently reads `stdenv.cc.defaultHardeningFlags` to
+determine which hardening flags to enable. With the `cc` attribute,
+`mkEkaPackage` reads hardening flags from the resolved `cc`:
+
+```nix
+defaultHardeningFlags =
+  if resolvedCC != null then
+    resolvedCC.defaultHardeningFlags or knownHardeningFlags
+  else
+    [];  # no compiler → no hardening flags
+```
+
+When `cc = null`, hardening is disabled entirely (there is no compiler to
+consume the flags). When a custom compiler is specified, its
+`defaultHardeningFlags` are respected, falling back to the full set of known
+flags if the attribute is absent.
+
+### Interaction with commands
+
+The `cc` attribute is intentionally separate from `commands` rather than being
+another entry in the `commands` attrset. This separation exists because:
+
+1. **Default injection**: `cc` has default-injection semantics (present unless
+   explicitly nulled), while `commands` entries are always explicit
+2. **Hardening**: The hardening flags computation must happen before dependency
+   flattening, requiring the CC to be resolved first
+3. **Introspection**: `mkEkaPackage.cc` is discoverable on the builder itself,
+   not buried inside a per-package function
+4. **Override ergonomics**: `cc = scope: scope.clang;` is cleaner than
+   modifying a `commands` function
+
+During flattening, the resolved `cc` is merged into the `commands` output.
+If the user's `commands` function returns an attrset that already contains a
+`cc` key, the user's value wins. Otherwise, the resolved `cc` is added under
+the key `cc`:
+
+```nix
+# Internal flattening (simplified)
+commandsAttrs = (attrs.commands or (_: {})) scopes.buildHost;
+mergedCommands = { cc = resolvedCC; } // commandsAttrs;
+# User's commands take precedence via // ordering
+```
+
+This means `finalAttrs.commands.cc` is always available for use in build
+phases when a compiler is present.
+
+### Comparison with stdenv variants
+
+| Goal | `mkDerivation` today | `mkEkaPackage` |
+|------|---------------------|----------------|
+| Use Clang | `clangStdenv.mkDerivation` | `cc = scope: scope.clang;` |
+| Pin GCC 12 | `gcc12Stdenv.mkDerivation` | `cc = scope: scope.gcc12;` |
+| No compiler | `stdenvNoCC.mkDerivation` | `cc = null;` |
+| Cross CC | Implicit via stdenv splicing | Explicit via scope |
+| Override CC | `pkg.override { stdenv = clangStdenv; }` | `pkg.overrideAttrs { cc = scope: scope.clang; }` |
+
+Overriding the compiler no longer requires replacing the entire stdenv and
+rebuilding the transitive closure. The stdenv derivation (and its setup hooks,
+`initialPath`, etc.) remains the same — only the compiler changes.
 
 ## Flattening
 
@@ -207,10 +346,21 @@ pkg.overrideAttrs (prev: {
 pkg.overrideAttrs (prev: {
   libraries = scope: prev.libraries scope // { openssl = myCustomOpenssl; };
 })
+
+# Switching the compiler
+pkg.overrideAttrs {
+  cc = scope: scope.clang;
+}
+
+# Disabling the compiler
+pkg.overrideAttrs {
+  cc = null;
+}
 ```
 
 This is a significant improvement over list manipulation. Dependencies are
-targeted by name rather than by value equality.
+targeted by name rather than by value equality. Switching the compiler is a
+single attribute override rather than replacing the entire stdenv.
 
 ## Language-specific helpers
 
@@ -224,7 +374,7 @@ dependencies via `callPackage` — it pulls them from the scope that
 ```nix
 # Simplified buildEkaPythonPackage — defined within the python package scope
 buildEkaPythonPackage = {
-  inherit (mkEkaPackage) stdenv scopes;
+  inherit (mkEkaPackage) stdenv cc scopes;
   inherit python;
 
   __functor = self: fnOrAttrs:
@@ -314,6 +464,42 @@ mkEkaPackage (finalAttrs: {
 })
 ```
 
+Using a different compiler:
+```nix
+{ mkEkaPackage, fetchurl, lib }:
+
+mkEkaPackage (finalAttrs: {
+  pname = "mesa";
+  version = "24.3.4";
+  src = fetchurl { /* ... */ };
+
+  # Use Clang for this package — no clangStdenv needed
+  cc = scope: scope.clang;
+
+  commands = scope: {
+    inherit (scope) pkg-config ninja python3;
+    mesonHook = scope.meson.configurePhaseHook;
+  };
+
+  libraries = scope: {
+    inherit (scope) libdrm libX11 vulkan-loader zlib;
+  };
+})
+```
+
+A data-only package with no compiler:
+```nix
+{ mkEkaPackage, fetchurl }:
+
+mkEkaPackage {
+  pname = "tzdata";
+  version = "2024b";
+  src = fetchurl { /* ... */ };
+
+  cc = null;  # no compiler needed
+}
+```
+
 ## Conditional dependencies
 
 Two patterns are supported:
@@ -355,9 +541,11 @@ The current cross-compilation flow is:
 3. `getDev` is applied to get the development output
 
 With `mkEkaPackage`, the flow becomes:
-1. `commands` receives `pkgsBuildHost` directly
-2. `libraries` receives `pkgsHostTarget` directly
-3. `getDev` is applied during flattening
+1. `cc` is resolved from the `pkgsBuildHost` scope (if it is a function) or
+   used directly (if it is a derivation or `null`)
+2. `commands` receives `pkgsBuildHost` directly; the resolved `cc` is merged in
+3. `libraries` receives `pkgsHostTarget` directly
+4. `getDev` is applied during flattening
 
 Splicing is bypassed entirely. The packages are already the correct platform
 variant because each dependency function receives the scope for its platform
@@ -390,13 +578,23 @@ Hooks like `cc-wrapper` and `pkg-config-wrapper` that branch on
 - Dependency ordering via `builtins.attrValues` is alphabetical by key. While
   deterministic, this differs from the original author-specified order. In
   practice, ordering rarely affects correctness, but setup hook execution order
-  could matter in edge cases.
+  could matter in edge cases. The `cc` attribute is prepended before the
+  alphabetical commands, ensuring the compiler's setup hook runs first.
 - This is a large divergence from Nixpkgs paradigms. Packages written for
   `mkEkaPackage` will not be trivially portable back to Nixpkgs.
 - Whether `mkEkaPackage` should be added to `lib.makeScope` as well or only
   to `lib.makeScopeWithSplicing'`. Simpler scopes using `makeScope` don't have
   `otherSplices`, so their `mkEkaPackage` would have limited cross-compilation
   support.
+- Whether `cc` should accept a wrapper-level specification (e.g.,
+  `scope.wrapCCWith { cc = scope.gcc-unwrapped; }`) or only pre-wrapped
+  compilers. Accepting unwrapped compilers would require `mkEkaPackage` to
+  know how to wrap them, adding complexity. Requiring pre-wrapped compilers
+  keeps the interface simple but means the scope must contain all desired
+  wrapper variants.
+- Whether packages that set `cc = null` should still have access to hardening
+  configuration (e.g., for Rust or Go packages that have their own hardening
+  mechanisms), or whether hardening is strictly tied to the CC wrapper.
 
 # Future work
 
@@ -412,6 +610,13 @@ Hooks like `cc-wrapper` and `pkg-config-wrapper` that branch on
   all packages use `mkEkaPackage`.
 - `__structuredAttrs = true` should be the default. Attrsets as dependency
   values cannot be stringified without structured attrs.
+- Deprecate and eventually remove `clangStdenv`, `gccStdenv`, `gcc12Stdenv`,
+  and similar stdenv variants once `mkEkaPackage` adoption is sufficient.
+  `stdenvNoCC` can be retained as a compatibility alias but is no longer
+  needed for new packages.
+- Evaluate whether `mkEkaPackage` should support a `fortran` or `cxx`
+  attribute alongside `cc` for languages that require additional compiler
+  frontends, or whether these should remain in `commands`.
 
 # Changes
 
