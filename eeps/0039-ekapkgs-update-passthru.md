@@ -77,6 +77,48 @@ When set to `true`, allows the update tool to consider pre-release versions (alp
 - Tracking development versions (e.g., Rust nightly, beta channels)
 - Early adopters who want to test upcoming versions
 
+## `platform-hashes` (list of strings)
+
+A list of Nix system strings for which the package has distinct source archives or hashes. When present, the update tool will discover the correct hash for **each** listed platform independently, rather than only updating the hash for the build machine's platform.
+
+**Type:** `list of string` (Nix system identifiers)
+**Default:** `null` (single-platform hash; current behavior)
+
+After the version is bumped, the update tool performs the following for each platform in the list:
+
+1. Invalidate the hash associated with that platform in the Nix file
+2. Run `nix-build <entry> -A <attr>.src --system <platform>` — this fails with a hash mismatch
+3. Extract the correct hash from the build error output
+4. Write the correct hash back to the file
+
+The platforms are processed sequentially so that file writes do not conflict. The hash for the build machine's own platform is discovered first (as part of the normal update flow), followed by the remaining platforms.
+
+**Use cases:**
+- Binary distributions that ship separate archives per platform (e.g., Bun, Deno, GitHub CLI binaries)
+- Packages using `fetchurl` with platform-interpolated URLs and per-platform hashes in an attrset
+- Any package where `src.outputHash` differs across systems
+
+**Packaging conventions:** Packages using this attribute typically store hashes in a keyed attrset within `variants.nix` or inline in the derivation:
+
+```nix
+# In variants.nix (mkManyVariants pattern)
+v1_4 = {
+  version = "1.4.2";
+  hashes = {
+    "aarch64-darwin" = "sha256-...";
+    "aarch64-linux" = "sha256-...";
+    "x86_64-darwin" = "sha256-...";
+    "x86_64-linux" = "sha256-...";
+  };
+};
+
+# In the generic builder
+passthru.ekapkgs-update.platform-hashes = [
+  "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"
+];
+```
+
+**Interaction with other attributes:** `platform-hashes` is orthogonal to `semver-strategy`, `version-regex`, and `skip`. Version selection happens first using those attributes; `platform-hashes` only affects the hash discovery phase after a new version has been chosen.
 
 # Example Usage
 
@@ -111,6 +153,11 @@ When set to `true`, allows the update tool to consider pre-release versions (alp
     passthru.ekapkgs-update = {
       semver-strategy = "minor";
       include-prereleases = true;
+    };
+
+    # Package with per-platform source archives (e.g., binary distributions)
+    passthru.ekapkgs-update = {
+      platform-hashes = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
     };
 
 }
