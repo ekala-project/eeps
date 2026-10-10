@@ -252,6 +252,102 @@ A conforming runtime assembles the container as follows:
 7. **`pivot_root`** — switch to the assembled rootfs.
 8. **Execute process** — start the entrypoint with the specified configuration.
 
+## Service-to-Container Projection
+
+An evaluated service module (as defined in `corepkgs`) already carries all the
+information an Ekala Container manifest needs. `ekaTools.buildContainer` is a
+Nix function that projects a service module evaluation into a manifest,
+enabling a single service definition to target native ekaos, Ekala Container,
+or OCI deployment without modification.
+
+### Interface
+
+```nix
+ekaTools.buildContainer {
+  # Required: the evaluated service config
+  service = config.services.myapp;
+
+  # Optional overrides
+  name = "myapp";                          # defaults to service attr name
+  tag = "1.0";                             # defaults to package version
+  extraSymlinks = { "/etc/hosts" = hostsFile; };
+  extraEnv = [ "LOG_LEVEL=info" ];
+  extraMounts = [
+    { destination = "/cache"; type = "tmpfs"; source = "tmpfs";
+      options = [ "nosuid" "size=128m" ]; }
+  ];
+}
+```
+
+### Projection rules
+
+The function evaluates the service module and maps its fields to manifest
+fields:
+
+| Service module | Manifest field | Notes |
+| --- | --- | --- |
+| `package` (full closure) | `closure` | `nix-store -qR` of the package |
+| `command` or `package.meta.mainProgram` | `process.entrypoint` | Falls back to `${package}/bin/${pname}` |
+| `commandArgs` | `process.cmd` | |
+| `environment` | `process.env` | Merged with `extraEnv` |
+| `user` / `group` | `process.user` / `process.group` | Numeric UIDs |
+| `ports.*` (EEP 0041) | `ports.*` | Passed through verbatim — same schema |
+| `dataDir` | `volumes.${dataDir}` | Also adds a writable tmpfs if no external mount |
+| `stateDir`, `runtimeDir`, `logsDir` | `rootfs.writable` entries | tmpfs for runtime state |
+| `migration.majorVersion` (EEP 0045) | `labels."dev.ekala.migration.majorVersion"` | Enables migration tooling in container context |
+| `migration.strategy` | `labels."dev.ekala.migration.strategy"` | |
+| Package `meta.description` | `labels."org.opencontainers.image.description"` | |
+| Package `version` | `labels."org.opencontainers.image.version"` | |
+| `system` | `architecture` + `os` | Parsed from Nix system string |
+
+The symlink tree (`rootfs.symlinks`) is derived the same way `buildEnv`
+assembles a profile: binaries, libraries, and `etc` files from the closure
+are symlinked into FHS-conventional paths. `extraSymlinks` are merged on top.
+
+### Example
+
+Given this service module:
+
+```nix
+services.redis = {
+  enable = true;
+  package = pkgs.redis;
+  dataDir = "/var/lib/redis";
+  ports.redis = {
+    port = 6379;
+    transport = "tcp";
+    internal = true;
+    healthCheck.path = null;
+  };
+  migration.majorVersion = lib.versions.major pkgs.redis.version;
+};
+```
+
+`ekaTools.buildContainer { service = config.services.redis; }` produces a
+derivation that writes an Ekala Container manifest with:
+
+- `closure` containing redis and all its runtime dependencies
+- `process.entrypoint` = `["/nix/store/...-redis-7.4/bin/redis-server"]`
+- `process.user` = `"65534"`
+- `ports.redis` = `{ port = 6379; transport = "tcp"; internal = true; ... }`
+- `volumes` = `{ "/var/lib/redis": {} }`
+- `rootfs.writable` entries for `/tmp`, `/var/run`, `/var/log`
+- `labels."dev.ekala.migration.majorVersion"` = `"7"`
+
+### Deployment mode parity
+
+The same service module works across three deployment modes:
+
+| Mode | Port contracts used by | Closure managed by | State managed by |
+| --- | --- | --- | --- |
+| **Native ekaos** | Firewall, reverse proxy, monitoring modules | System profile | Host filesystem + EEP 0045 migration |
+| **Ekala Container** | `ports` field in manifest; runtime maps to host | Binary cache / host store | Volumes + EEP 0045 migration via labels |
+| **OCI image** (shim) | Derived `ExposedPorts` + `Healthcheck` | Registry layers | Docker volumes |
+
+No service module changes are needed to switch between modes. The port
+contracts, migration metadata, and dependency graph are the same — only the
+packaging and runtime change.
+
 ## Distribution
 
 Two strategies, not mutually exclusive:
@@ -284,7 +380,6 @@ Two strategies, not mutually exclusive:
 
 # Future Work
 
-- **`ekaTools.buildContainer`** — Nix function to generate Ekala Container manifests from package sets.
 - **`ekala-snapshotter`** — containerd snapshotter plugin for Kubernetes integration.
 - **`ekala-run`** — standalone CLI for running Ekala Containers without containerd.
 - **OCI compatibility shim** — convert Ekala Container manifests to standard OCI images for legacy runtimes.
